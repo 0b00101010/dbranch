@@ -16,6 +16,18 @@ def tmp_git_repo(tmp_path: Path) -> Path:
         check=True,
     )
     subprocess.run(
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=str(tmp_path),
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"],
+        cwd=str(tmp_path),
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
         ["git", "commit", "--allow-empty", "-m", "init"],
         cwd=str(tmp_path),
         capture_output=True,

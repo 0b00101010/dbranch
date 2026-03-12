@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import pytest
 
-from dbranch.schema import validate_name, full_schema_name, MYSQL_MAX_SCHEMA_LENGTH
+from datetime import timedelta
+
+from dbranch.schema import validate_name, full_schema_name, _parse_duration, MYSQL_MAX_SCHEMA_LENGTH
 
 
 class TestValidateName:
@@ -66,3 +68,42 @@ class TestFullSchemaName:
         name = "a" * (MYSQL_MAX_SCHEMA_LENGTH - 4)
         result = full_schema_name("dbb_", name)
         assert len(result) == MYSQL_MAX_SCHEMA_LENGTH
+
+
+class TestParseDuration:
+    """Tests for _parse_duration()."""
+
+    def test_days(self):
+        assert _parse_duration("7d") == timedelta(days=7)
+
+    def test_hours(self):
+        assert _parse_duration("24h") == timedelta(hours=24)
+
+    def test_weeks(self):
+        assert _parse_duration("2w") == timedelta(weeks=2)
+
+    def test_single_day(self):
+        assert _parse_duration("1d") == timedelta(days=1)
+
+    def test_invalid_unit(self):
+        with pytest.raises(ValueError, match="Invalid duration"):
+            _parse_duration("5m")
+
+    def test_no_number(self):
+        with pytest.raises(ValueError, match="Invalid duration"):
+            _parse_duration("d")
+
+    def test_negative(self):
+        with pytest.raises(ValueError, match="Invalid duration"):
+            _parse_duration("-3d")
+
+    def test_float(self):
+        with pytest.raises(ValueError, match="Invalid duration"):
+            _parse_duration("1.5d")
+
+    def test_empty_string(self):
+        with pytest.raises(ValueError, match="Invalid duration"):
+            _parse_duration("")
+
+    def test_whitespace_stripped(self):
+        assert _parse_duration("  7d  ") == timedelta(days=7)

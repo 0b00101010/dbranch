@@ -3,7 +3,18 @@ from __future__ import annotations
 
 import pytest
 
-from dbranch.config import _parse_hooks, _parse_targets, HookStep, TargetApp
+import os
+import subprocess
+from pathlib import Path
+
+from dbranch.config import (
+    _parse_hooks,
+    _parse_targets,
+    get_git_common_dir,
+    get_git_toplevel,
+    HookStep,
+    TargetApp,
+)
 
 
 class TestParseHooks:
@@ -77,3 +88,32 @@ class TestParseTargets:
         assert result[0].path == "apps/web"
         assert result[1].path == "apps/api"
         assert result[1].env_key == "MYSQL_DB"
+
+
+class TestGetGitCommonDir:
+    """Tests for get_git_common_dir()."""
+
+    def test_success(self, tmp_git_repo, monkeypatch):
+        monkeypatch.chdir(tmp_git_repo)
+        result = get_git_common_dir()
+        expected = str((tmp_git_repo / ".git").resolve())
+        assert result == expected
+
+    def test_not_a_repo(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(RuntimeError, match="Not inside a git repository"):
+            get_git_common_dir()
+
+
+class TestGetGitToplevel:
+    """Tests for get_git_toplevel()."""
+
+    def test_success(self, tmp_git_repo, monkeypatch):
+        monkeypatch.chdir(tmp_git_repo)
+        result = get_git_toplevel()
+        assert result == tmp_git_repo.resolve()
+
+    def test_not_a_repo(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(RuntimeError, match="Not inside a git repository"):
+            get_git_toplevel()

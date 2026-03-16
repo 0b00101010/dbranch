@@ -30,6 +30,16 @@ CREATE TABLE IF NOT EXISTS `{METADATA_SCHEMA}`.`{METADATA_TABLE}` (
 """
 
 
+def _schema_exists(cursor, name: str) -> bool:
+    """Check if a MySQL schema exists."""
+    cursor.execute(
+        "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA "
+        "WHERE SCHEMA_NAME = %s",
+        (name,),
+    )
+    return cursor.fetchone() is not None
+
+
 def validate_name(name: str) -> str | None:
     """Validate a logical schema name. Returns error message or None."""
     if "/" in name:
@@ -67,8 +77,7 @@ def _write_env_files(
     written = []
     for target in config.targets:
         target_dir = (worktree_root / target.path).resolve()
-        if not target_dir.is_dir():
-            target_dir.mkdir(parents=True, exist_ok=True)
+        target_dir.mkdir(parents=True, exist_ok=True)
 
         env_path = target_dir / target.env_file
         env_path.write_text(f"{target.env_key}={schema_name}\n")
@@ -90,13 +99,7 @@ def create_schema(
 
     with get_connection(config.connection) as conn:
         with conn.cursor() as cursor:
-            # Check if already exists
-            cursor.execute(
-                f"SELECT SCHEMA_NAME FROM information_schema.SCHEMATA "
-                f"WHERE SCHEMA_NAME = %s",
-                (schema,),
-            )
-            if cursor.fetchone():
+            if _schema_exists(cursor, schema):
                 raise ValueError(f"Schema '{schema}' already exists.")
 
             # Create the schema
@@ -297,22 +300,10 @@ def clone_schema(
 
     with get_connection(config.connection) as conn:
         with conn.cursor() as cursor:
-            # Verify source exists
-            cursor.execute(
-                "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA "
-                "WHERE SCHEMA_NAME = %s",
-                (source_schema,),
-            )
-            if not cursor.fetchone():
+            if not _schema_exists(cursor, source_schema):
                 raise ValueError(f"Source schema '{source_schema}' does not exist.")
 
-            # Check new doesn't exist
-            cursor.execute(
-                "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA "
-                "WHERE SCHEMA_NAME = %s",
-                (new_schema,),
-            )
-            if cursor.fetchone():
+            if _schema_exists(cursor, new_schema):
                 raise ValueError(f"Schema '{new_schema}' already exists.")
 
             # Create new schema
@@ -337,23 +328,33 @@ def clone_schema(
                     f"SELECT * FROM `{source_schema}`.`{table}`"
                 )
 
-            # Clone views
+            # Clone views using SHOW CREATE VIEW for full fidelity
             cursor.execute(
-                "SELECT TABLE_NAME, VIEW_DEFINITION FROM information_schema.VIEWS "
+                "SELECT TABLE_NAME FROM information_schema.VIEWS "
                 "WHERE TABLE_SCHEMA = %s",
                 (source_schema,),
             )
-            views = cursor.fetchall()
+            view_names = [row["TABLE_NAME"] for row in cursor.fetchall()]
             views_cloned = 0
-            for view in views:
-                view_name = view["TABLE_NAME"]
-                view_def = view["VIEW_DEFINITION"]
-                # Rewrite schema references in view definition
-                view_def = view_def.replace(f"`{source_schema}`.", f"`{new_schema}`.")
-                cursor.execute(
-                    f"CREATE VIEW `{new_schema}`.`{view_name}` AS {view_def}"
-                )
-                views_cloned += 1
+            for view_name in view_names:
+                try:
+                    cursor.execute(
+                        f"SHOW CREATE VIEW `{source_schema}`.`{view_name}`"
+                    )
+                    show_row = cursor.fetchone()
+                    ddl = show_row.get("Create View")
+                    if not ddl:
+                        continue
+                    ddl = re.sub(
+                        r"DEFINER\s*=\s*`[^`]*`@`[^`]*`\s*",
+                        "",
+                        ddl,
+                    )
+                    ddl = ddl.replace(f"`{source_schema}`.", f"`{new_schema}`.")
+                    cursor.execute(ddl)
+                    views_cloned += 1
+                except pymysql.Error:
+                    pass
 
             # Clone routines (procedures and functions).
             # Uses SHOW CREATE to get the full DDL including parameter lists.
@@ -399,7 +400,7 @@ def clone_schema(
                     )
                     cursor.execute(ddl)
                     routines_cloned += 1
-                except Exception:
+                except pymysql.Error:
                     # Skip routines that can't be cloned (e.g., permission issues)
                     pass
 

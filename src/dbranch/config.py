@@ -110,11 +110,12 @@ def _parse_hooks(raw: dict) -> HooksConfig:
 def _parse_targets(raw: list) -> list[TargetApp]:
     targets = []
     for item in raw:
-        targets.append(TargetApp(
-            path=item["path"],
-            env_file=item.get("env_file", ".env.db-schema"),
-            env_key=item.get("env_key", "DB_NAME"),
-        ))
+        kwargs = {"path": item["path"]}
+        if "env_file" in item:
+            kwargs["env_file"] = item["env_file"]
+        if "env_key" in item:
+            kwargs["env_key"] = item["env_key"]
+        targets.append(TargetApp(**kwargs))
     return targets
 
 

@@ -6,6 +6,7 @@ import pytest
 from click.testing import CliRunner
 
 from dbranch.cli import cli
+from dbranch.config import save_project_config
 
 
 class TestCreateCLI:
@@ -100,7 +101,6 @@ class TestConfigShowCLI:
     def test_config_show_with_config(
         self, cli_no_config_env, sample_config_data
     ):
-        from dbranch.config import save_project_config
         save_project_config("testproject", sample_config_data)
 
         runner = CliRunner()

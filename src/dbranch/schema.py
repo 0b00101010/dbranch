@@ -344,6 +344,7 @@ def clone_schema(
                 (source_schema,),
             )
             views = cursor.fetchall()
+            views_cloned = 0
             for view in views:
                 view_name = view["TABLE_NAME"]
                 view_def = view["VIEW_DEFINITION"]
@@ -352,37 +353,55 @@ def clone_schema(
                 cursor.execute(
                     f"CREATE VIEW `{new_schema}`.`{view_name}` AS {view_def}"
                 )
+                views_cloned += 1
 
-            # Clone routines (procedures and functions)
+            # Clone routines (procedures and functions).
+            # Uses SHOW CREATE to get the full DDL including parameter lists.
             cursor.execute(
-                "SELECT ROUTINE_NAME, ROUTINE_TYPE, ROUTINE_DEFINITION, "
-                "DTD_IDENTIFIER "
+                "SELECT ROUTINE_NAME, ROUTINE_TYPE "
                 "FROM information_schema.ROUTINES "
                 "WHERE ROUTINE_SCHEMA = %s",
                 (source_schema,),
             )
             routines = cursor.fetchall()
+            routines_cloned = 0
             for routine in routines:
                 r_name = routine["ROUTINE_NAME"]
-                r_type = routine["ROUTINE_TYPE"]  # PROCEDURE or FUNCTION
-                r_body = routine["ROUTINE_DEFINITION"]
-                if r_body:
-                    r_body = r_body.replace(
-                        f"`{source_schema}`.", f"`{new_schema}`."
+                r_type = routine["ROUTINE_TYPE"]
+                try:
+                    cursor.execute(
+                        f"SHOW CREATE {r_type} `{source_schema}`.`{r_name}`"
                     )
-                    if r_type == "FUNCTION":
-                        returns = routine["DTD_IDENTIFIER"] or "VARCHAR(255)"
-                        cursor.execute(
-                            f"CREATE FUNCTION `{new_schema}`.`{r_name}`() "
-                            f"RETURNS {returns} "
-                            f"DETERMINISTIC "
-                            f"BEGIN {r_body} END"
-                        )
-                    else:
-                        cursor.execute(
-                            f"CREATE PROCEDURE `{new_schema}`.`{r_name}`() "
-                            f"BEGIN {r_body} END"
-                        )
+                    show_row = cursor.fetchone()
+                    # Key varies: "Create Procedure" or "Create Function"
+                    ddl = None
+                    for key in show_row:
+                        if key.lower().startswith("create"):
+                            ddl = show_row[key]
+                            break
+                    if not ddl:
+                        continue
+                    # Remove DEFINER clause so the routine is created with
+                    # the current user's privileges
+                    ddl = re.sub(
+                        r"DEFINER\s*=\s*`[^`]*`@`[^`]*`\s*",
+                        "",
+                        ddl,
+                    )
+                    # Rewrite schema references in the body
+                    ddl = ddl.replace(f"`{source_schema}`.", f"`{new_schema}`.")
+                    # Replace the unqualified routine name in the CREATE header
+                    # with a schema-qualified name so it lands in new_schema.
+                    ddl = ddl.replace(
+                        f"CREATE {r_type} `{r_name}`",
+                        f"CREATE {r_type} `{new_schema}`.`{r_name}`",
+                        1,
+                    )
+                    cursor.execute(ddl)
+                    routines_cloned += 1
+                except Exception:
+                    # Skip routines that can't be cloned (e.g., permission issues)
+                    pass
 
             # Register in metadata
             cursor.execute(
@@ -403,8 +422,8 @@ def clone_schema(
         "logical_name": new_name,
         "cloned_from": source_schema,
         "tables_cloned": len(tables),
-        "views_cloned": len(views),
-        "routines_cloned": len(routines),
+        "views_cloned": views_cloned,
+        "routines_cloned": routines_cloned,
         "created_at": datetime.now().isoformat(),
         "env_files": env_files,
     }

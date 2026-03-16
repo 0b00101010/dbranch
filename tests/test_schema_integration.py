@@ -226,6 +226,8 @@ class TestGetStatus:
 
 
 class TestCloneWithViews:
+    """Integration tests for clone_schema() view cloning."""
+
     def test_clone_includes_views(self, integration_config, mysql_cleanup):
         src = _unique_name("view_src")
         dst = _unique_name("view_dst")
@@ -247,7 +249,7 @@ class TestCloneWithViews:
             conn.commit()
 
         result = clone_schema(integration_config, src, dst)
-        assert result["views_cloned"] >= 1
+        assert result["views_cloned"] == 1
 
         with get_connection(integration_config.connection) as conn:
             with conn.cursor() as cur:
@@ -261,6 +263,8 @@ class TestCloneWithViews:
 
 
 class TestCloneWithRoutines:
+    """Integration tests for clone_schema() routine cloning."""
+
     def test_clone_includes_procedures(self, integration_config, mysql_cleanup):
         src = _unique_name("proc_src")
         dst = _unique_name("proc_dst")
@@ -280,7 +284,7 @@ class TestCloneWithRoutines:
             conn.commit()
 
         result = clone_schema(integration_config, src, dst)
-        assert result["routines_cloned"] >= 1
+        assert result["routines_cloned"] == 1
 
         with get_connection(integration_config.connection) as conn:
             with conn.cursor() as cur:

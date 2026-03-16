@@ -6,13 +6,32 @@ build-backend = "hatchling.build"
 name = "dbranch"
 version = "0.1.0"
 description = "Database branching CLI for parallel worktree development"
+readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.10"
+keywords = ["database", "mysql", "git", "worktree", "branching", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Software Development :: Version Control :: Git",
+]
 dependencies = [
     "click>=8.1",
     "pymysql[rsa]>=1.1",
     "pyyaml>=6.0",
     "rich>=13.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/komorio/dbranch"
+Repository = "https://github.com/komorio/dbranch"
+Issues = "https://github.com/komorio/dbranch/issues"
 
 [project.optional-dependencies]
 dev = [

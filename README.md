@@ -86,6 +86,7 @@ dbb --json status
 dbb --json create feature_auth
 dbb --json clone main feature_auth
 dbb --json ls
+dbb --json config show               # check current configuration
 ```
 
 ### Example CLAUDE.md snippet
@@ -108,6 +109,24 @@ dbb --json ls
   "data": {
     "schema_name": "dbb_feature_auth",
     "logical_name": "feature_auth",
+    "created_at": "2026-03-12T15:30:00",
+    "env_files": ["/path/to/apps/my-app/.env.db-schema"]
+  }
+}
+```
+
+**`dbb --json clone`**
+```json
+{
+  "status": "ok",
+  "message": "Schema 'dbb_feature_auth' cloned from 'dbb_main_dev'.",
+  "data": {
+    "schema_name": "dbb_feature_auth",
+    "logical_name": "feature_auth",
+    "cloned_from": "dbb_main_dev",
+    "tables_cloned": 12,
+    "views_cloned": 2,
+    "routines_cloned": 1,
     "created_at": "2026-03-12T15:30:00",
     "env_files": ["/path/to/apps/my-app/.env.db-schema"]
   }
@@ -152,6 +171,7 @@ dbb --json ls
 | `dbb clone <src> <new>` | Agent/Human | Clone schema with all data |
 | `dbb status` | Agent/Human | Check current worktree's schema |
 | `dbb ls` | Agent/Human | List all managed schemas |
+| `dbb config show` | Agent/Human | Show current project config (password masked) |
 
 Run `dbb <command> --help` for detailed usage, JSON output format, and exit codes.
 

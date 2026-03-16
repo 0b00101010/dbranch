@@ -122,6 +122,13 @@ def mysql_cleanup(mysql_conn_config):
 
 
 @pytest.fixture
+def cli_no_config_env(tmp_git_repo, mock_config_dir, monkeypatch):
+    """Set up a git repo with mocked config dir but no saved config."""
+    monkeypatch.chdir(tmp_git_repo)
+    return tmp_git_repo
+
+
+@pytest.fixture
 def integration_config(tmp_git_repo, mock_config_dir, mysql_conn_config, monkeypatch):
     """Full Config wired to test MySQL + temp git repo + mock config dir.
 

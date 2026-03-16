@@ -30,8 +30,7 @@ class TestCreateCLI:
         result = runner.invoke(cli, ["--json", "create"])
         assert result.exit_code != 0
 
-    def test_create_no_config(self, tmp_git_repo, mock_config_dir, monkeypatch):
-        monkeypatch.chdir(tmp_git_repo)
+    def test_create_no_config(self, cli_no_config_env):
         runner = CliRunner()
         result = runner.invoke(cli, ["--json", "create", "valid_name"])
         assert result.exit_code == 1
@@ -40,17 +39,15 @@ class TestCreateCLI:
 
 
 class TestLsCLI:
-    def test_ls_no_config(self, tmp_git_repo, mock_config_dir, monkeypatch):
-        monkeypatch.chdir(tmp_git_repo)
+    def test_ls_no_config(self, cli_no_config_env):
         runner = CliRunner()
         result = runner.invoke(cli, ["--json", "ls"])
         assert result.exit_code == 1
         data = json.loads(result.output)
         assert data["status"] == "error"
 
-    def test_ls_invalid_duration(self, tmp_git_repo, mock_config_dir, monkeypatch):
+    def test_ls_invalid_duration(self, cli_no_config_env):
         """ls with bad --older-than should fail, but only if config exists first."""
-        monkeypatch.chdir(tmp_git_repo)
         runner = CliRunner()
         # Without config it fails on config lookup first
         result = runner.invoke(cli, ["--json", "ls", "--older-than", "abc"])
@@ -58,8 +55,7 @@ class TestLsCLI:
 
 
 class TestStatusCLI:
-    def test_status_no_config(self, tmp_git_repo, mock_config_dir, monkeypatch):
-        monkeypatch.chdir(tmp_git_repo)
+    def test_status_no_config(self, cli_no_config_env):
         runner = CliRunner()
         result = runner.invoke(cli, ["--json", "status"])
         assert result.exit_code == 1
@@ -83,6 +79,8 @@ class TestCloneCLI:
         runner = CliRunner()
         result = runner.invoke(cli, ["--json", "clone", "valid", "feature/bar"])
         assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["status"] == "error"
 
     def test_clone_help(self):
         runner = CliRunner()

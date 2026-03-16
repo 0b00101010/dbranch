@@ -191,3 +191,33 @@ class TestCloneSchema:
 
         with pytest.raises(ValueError, match="already exists"):
             clone_schema(integration_config, source_name, target_name)
+
+
+class TestGetStatus:
+    """Integration tests for get_status()."""
+
+    def test_status_no_env_file(self, integration_config, mysql_cleanup, monkeypatch):
+        """When no .env.db-schema exists, configured should be False."""
+        result = get_status(integration_config)
+
+        assert "targets" in result
+        assert len(result["targets"]) == 1
+        target = result["targets"][0]
+        assert target["configured"] is False
+        assert target["exists_in_db"] is False
+
+    def test_status_after_create(self, integration_config, mysql_cleanup, monkeypatch):
+        """After create_schema, configured=True and exists_in_db=True."""
+        name = _unique_name()
+        schema = full_schema_name(integration_config.schema_prefix, name)
+        mysql_cleanup.append(schema)
+
+        create_schema(integration_config, name)
+
+        result = get_status(integration_config)
+
+        assert len(result["targets"]) == 1
+        target = result["targets"][0]
+        assert target["configured"] is True
+        assert target["schema_name"] == schema
+        assert target["exists_in_db"] is True

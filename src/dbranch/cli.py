@@ -690,7 +690,7 @@ def config_show(ctx: click.Context) -> None:
                 for h in data["hooks"]["post_create"]:
                     console.print(f"  [{h['type']}] {h['value']}")
 
-    except (FileNotFoundError, RuntimeError) as e:
+    except (FileNotFoundError, ValueError, RuntimeError) as e:
         fmt.error(str(e))
         raise SystemExit(1)
 

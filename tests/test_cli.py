@@ -94,6 +94,8 @@ class TestConfigShowCLI:
         runner = CliRunner()
         result = runner.invoke(cli, ["--json", "config", "show"])
         assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["status"] == "error"
 
     def test_config_show_with_config(
         self, cli_no_config_env, sample_config_data

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import uuid
 
-import pymysql
 import pytest
 
 from dbranch.db import get_connection, execute_sql

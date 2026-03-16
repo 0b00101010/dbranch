@@ -107,3 +107,15 @@ class TestParseDuration:
 
     def test_whitespace_stripped(self):
         assert _parse_duration("  7d  ") == timedelta(days=7)
+
+
+class TestErrorMessages:
+    def test_slash_error_suggests_underscore(self):
+        error = validate_name("feature/auth")
+        assert "underscore" in error.lower()
+
+    def test_length_error_shows_limit(self):
+        with pytest.raises(ValueError) as exc_info:
+            full_schema_name("dbb_", "a" * 61)
+        assert "64" in str(exc_info.value)
+        assert "dbb_" in str(exc_info.value)

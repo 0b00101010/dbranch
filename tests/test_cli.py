@@ -87,3 +87,24 @@ class TestCloneCLI:
         result = runner.invoke(cli, ["clone", "--help"])
         assert result.exit_code == 0
         assert "source" in result.output.lower()
+
+
+class TestConfigShowCLI:
+    def test_config_show_no_config(self, cli_no_config_env):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--json", "config", "show"])
+        assert result.exit_code == 1
+
+    def test_config_show_with_config(
+        self, cli_no_config_env, sample_config_data
+    ):
+        from dbranch.config import save_project_config
+        save_project_config("testproject", sample_config_data)
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--json", "config", "show"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["project_name"] == "testproject"
+        assert "connection" in data
+        assert data["connection"]["password"] == "***"

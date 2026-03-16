@@ -615,6 +615,86 @@ def status(ctx: click.Context) -> None:
         raise SystemExit(1)
 
 
+CONFIG_SHOW_HELP = """\
+Show current project configuration.
+
+\b
+WHAT IT DOES:
+  Displays the resolved configuration for the current git repository.
+  Password is masked in output for safety.
+
+\b
+EXAMPLES:
+  dbb config show
+  dbb --json config show
+
+\b
+EXIT CODES:
+  0  Success
+  1  Error (config not found, not in a git repo)\
+"""
+
+
+@cli.group()
+def config():
+    """Manage DBranch configuration."""
+    pass
+
+
+@config.command(name="show", help=CONFIG_SHOW_HELP)
+@click.pass_context
+def config_show(ctx: click.Context) -> None:
+    fmt: OutputFormatter = ctx.obj["fmt"]
+
+    try:
+        cfg = load_config()
+        data = {
+            "project_name": cfg.project_name,
+            "git_common_dir": cfg.git_common_dir,
+            "connection": {
+                "host": cfg.connection.host,
+                "port": cfg.connection.port,
+                "user": cfg.connection.user,
+                "password": "***",
+            },
+            "schema_prefix": cfg.schema_prefix,
+            "targets": [
+                {"path": t.path, "env_file": t.env_file, "env_key": t.env_key}
+                for t in cfg.targets
+            ],
+            "hooks": {
+                "post_create": [
+                    {"type": h.type, "value": h.value}
+                    for h in cfg.hooks.post_create
+                ],
+            },
+        }
+
+        if fmt.use_json:
+            click.echo(json.dumps(data, indent=2))
+        else:
+            console.print(f"Project: [bold]{data['project_name']}[/bold]")
+            console.print(f"Git:     {data['git_common_dir']}")
+            console.print(f"Prefix:  {data['schema_prefix']}")
+            console.print()
+            conn = data["connection"]
+            console.print(f"Connection: {conn['user']}@{conn['host']}:{conn['port']}")
+            console.print()
+            if data["targets"]:
+                console.print("[bold]Targets:[/bold]")
+                for t in data["targets"]:
+                    console.print(f"  {t['path']} -> {t['env_file']} ({t['env_key']})")
+            if data["hooks"]["post_create"]:
+                console.print()
+                console.print("[bold]Hooks (post_create):[/bold]")
+                for h in data["hooks"]["post_create"]:
+                    console.print(f"  [{h['type']}] {h['value']}")
+
+    except (FileNotFoundError, RuntimeError) as e:
+        fmt.error(str(e))
+        raise SystemExit(1)
+
+
 @cli.command(help=CLONE_HELP)
 @click.argument("source")
 @click.argument("new_name")

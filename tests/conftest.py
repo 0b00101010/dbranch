@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from dbranch.config import ConnectionConfig, Config, TargetApp, HooksConfig, save_project_config
-from dbranch.schema import METADATA_SCHEMA
+from dbranch.schema import METADATA_SCHEMA, METADATA_TABLE
 
 
 @pytest.fixture
@@ -108,12 +108,16 @@ def mysql_cleanup(mysql_conn_config):
 
     created: list[str] = []
     yield created
-    # Teardown: drop all tracked schemas + metadata schema
+    # Teardown: drop all tracked schemas and delete their metadata rows
     with get_connection(mysql_conn_config) as conn:
         with conn.cursor() as cursor:
             for name in created:
                 cursor.execute(f"DROP SCHEMA IF EXISTS `{name}`")
-            cursor.execute(f"DROP SCHEMA IF EXISTS `{METADATA_SCHEMA}`")
+                cursor.execute(
+                    f"DELETE FROM `{METADATA_SCHEMA}`.`{METADATA_TABLE}` "
+                    f"WHERE schema_name = %s",
+                    (name,),
+                )
         conn.commit()
 
 

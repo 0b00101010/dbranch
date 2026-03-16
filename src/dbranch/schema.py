@@ -337,6 +337,22 @@ def clone_schema(
                     f"SELECT * FROM `{source_schema}`.`{table}`"
                 )
 
+            # Clone views
+            cursor.execute(
+                "SELECT TABLE_NAME, VIEW_DEFINITION FROM information_schema.VIEWS "
+                "WHERE TABLE_SCHEMA = %s",
+                (source_schema,),
+            )
+            views = cursor.fetchall()
+            for view in views:
+                view_name = view["TABLE_NAME"]
+                view_def = view["VIEW_DEFINITION"]
+                # Rewrite schema references in view definition
+                view_def = view_def.replace(f"`{source_schema}`.", f"`{new_schema}`.")
+                cursor.execute(
+                    f"CREATE VIEW `{new_schema}`.`{view_name}` AS {view_def}"
+                )
+
             # Register in metadata
             cursor.execute(
                 f"INSERT INTO `{METADATA_SCHEMA}`.`{METADATA_TABLE}` "
@@ -356,6 +372,7 @@ def clone_schema(
         "logical_name": new_name,
         "cloned_from": source_schema,
         "tables_cloned": len(tables),
+        "views_cloned": len(views),
         "created_at": datetime.now().isoformat(),
         "env_files": env_files,
     }

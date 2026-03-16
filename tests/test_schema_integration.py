@@ -18,9 +18,9 @@ from dbranch.schema import (
 )
 
 
-def _unique_name() -> str:
+def _unique_name(prefix: str = "t") -> str:
     """Generate a unique logical schema name for test isolation."""
-    return f"t_{uuid.uuid4().hex[:8]}"
+    return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
 
 class TestCreateSchema:
@@ -223,3 +223,37 @@ class TestGetStatus:
         assert target["configured"] is True
         assert target["schema_name"] == schema
         assert target["exists_in_db"] is True
+
+
+class TestCloneWithViews:
+    def test_clone_includes_views(self, integration_config, mysql_cleanup):
+        src = _unique_name("view_src")
+        dst = _unique_name("view_dst")
+        src_schema = full_schema_name(integration_config.schema_prefix, src)
+        dst_schema = full_schema_name(integration_config.schema_prefix, dst)
+        mysql_cleanup.append(src_schema)
+        mysql_cleanup.append(dst_schema)
+
+        create_schema(integration_config, src)
+
+        with get_connection(integration_config.connection) as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"CREATE TABLE `{src_schema}`.`items` (id INT PRIMARY KEY, name VARCHAR(50))")
+                cur.execute(f"INSERT INTO `{src_schema}`.`items` VALUES (1, 'x')")
+                cur.execute(
+                    f"CREATE VIEW `{src_schema}`.`items_view` AS "
+                    f"SELECT * FROM `{src_schema}`.`items`"
+                )
+            conn.commit()
+
+        result = clone_schema(integration_config, src, dst)
+
+        with get_connection(integration_config.connection) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT TABLE_NAME FROM information_schema.VIEWS "
+                    "WHERE TABLE_SCHEMA = %s",
+                    (dst_schema,),
+                )
+                views = [r["TABLE_NAME"] for r in cur.fetchall()]
+                assert "items_view" in views

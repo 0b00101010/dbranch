@@ -353,6 +353,37 @@ def clone_schema(
                     f"CREATE VIEW `{new_schema}`.`{view_name}` AS {view_def}"
                 )
 
+            # Clone routines (procedures and functions)
+            cursor.execute(
+                "SELECT ROUTINE_NAME, ROUTINE_TYPE, ROUTINE_DEFINITION, "
+                "DTD_IDENTIFIER "
+                "FROM information_schema.ROUTINES "
+                "WHERE ROUTINE_SCHEMA = %s",
+                (source_schema,),
+            )
+            routines = cursor.fetchall()
+            for routine in routines:
+                r_name = routine["ROUTINE_NAME"]
+                r_type = routine["ROUTINE_TYPE"]  # PROCEDURE or FUNCTION
+                r_body = routine["ROUTINE_DEFINITION"]
+                if r_body:
+                    r_body = r_body.replace(
+                        f"`{source_schema}`.", f"`{new_schema}`."
+                    )
+                    if r_type == "FUNCTION":
+                        returns = routine["DTD_IDENTIFIER"] or "VARCHAR(255)"
+                        cursor.execute(
+                            f"CREATE FUNCTION `{new_schema}`.`{r_name}`() "
+                            f"RETURNS {returns} "
+                            f"DETERMINISTIC "
+                            f"BEGIN {r_body} END"
+                        )
+                    else:
+                        cursor.execute(
+                            f"CREATE PROCEDURE `{new_schema}`.`{r_name}`() "
+                            f"BEGIN {r_body} END"
+                        )
+
             # Register in metadata
             cursor.execute(
                 f"INSERT INTO `{METADATA_SCHEMA}`.`{METADATA_TABLE}` "
@@ -373,6 +404,7 @@ def clone_schema(
         "cloned_from": source_schema,
         "tables_cloned": len(tables),
         "views_cloned": len(views),
+        "routines_cloned": len(routines),
         "created_at": datetime.now().isoformat(),
         "env_files": env_files,
     }

@@ -257,3 +257,35 @@ class TestCloneWithViews:
                 )
                 views = [r["TABLE_NAME"] for r in cur.fetchall()]
                 assert "items_view" in views
+
+
+class TestCloneWithRoutines:
+    def test_clone_includes_procedures(self, integration_config, mysql_cleanup):
+        src = _unique_name("proc_src")
+        dst = _unique_name("proc_dst")
+        src_schema = full_schema_name(integration_config.schema_prefix, src)
+        dst_schema = full_schema_name(integration_config.schema_prefix, dst)
+        mysql_cleanup.append(src_schema)
+        mysql_cleanup.append(dst_schema)
+
+        create_schema(integration_config, src)
+
+        with get_connection(integration_config.connection) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"CREATE PROCEDURE `{src_schema}`.`get_version`() "
+                    f"BEGIN SELECT VERSION(); END"
+                )
+            conn.commit()
+
+        result = clone_schema(integration_config, src, dst)
+
+        with get_connection(integration_config.connection) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT ROUTINE_NAME FROM information_schema.ROUTINES "
+                    "WHERE ROUTINE_SCHEMA = %s",
+                    (dst_schema,),
+                )
+                routines = [r["ROUTINE_NAME"] for r in cur.fetchall()]
+                assert "get_version" in routines

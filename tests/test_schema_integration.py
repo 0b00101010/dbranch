@@ -247,6 +247,7 @@ class TestCloneWithViews:
             conn.commit()
 
         result = clone_schema(integration_config, src, dst)
+        assert result["views_cloned"] >= 1
 
         with get_connection(integration_config.connection) as conn:
             with conn.cursor() as cur:
@@ -279,6 +280,7 @@ class TestCloneWithRoutines:
             conn.commit()
 
         result = clone_schema(integration_config, src, dst)
+        assert result["routines_cloned"] >= 1
 
         with get_connection(integration_config.connection) as conn:
             with conn.cursor() as cur:

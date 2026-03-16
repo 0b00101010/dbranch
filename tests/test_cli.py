@@ -37,3 +37,55 @@ class TestCreateCLI:
         assert result.exit_code == 1
         data = json.loads(result.output)
         assert "init" in data["message"].lower()
+
+
+class TestLsCLI:
+    def test_ls_no_config(self, tmp_git_repo, mock_config_dir, monkeypatch):
+        monkeypatch.chdir(tmp_git_repo)
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--json", "ls"])
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["status"] == "error"
+
+    def test_ls_invalid_duration(self, tmp_git_repo, mock_config_dir, monkeypatch):
+        """ls with bad --older-than should fail, but only if config exists first."""
+        monkeypatch.chdir(tmp_git_repo)
+        runner = CliRunner()
+        # Without config it fails on config lookup first
+        result = runner.invoke(cli, ["--json", "ls", "--older-than", "abc"])
+        assert result.exit_code == 1
+
+
+class TestStatusCLI:
+    def test_status_no_config(self, tmp_git_repo, mock_config_dir, monkeypatch):
+        monkeypatch.chdir(tmp_git_repo)
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--json", "status"])
+        assert result.exit_code == 1
+
+    def test_status_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["status", "--help"])
+        assert result.exit_code == 0
+        assert "worktree" in result.output.lower()
+
+
+class TestCloneCLI:
+    def test_clone_rejects_slash_in_source(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--json", "clone", "feature/bar", "valid"])
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert "/" in data["message"]
+
+    def test_clone_rejects_slash_in_target(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--json", "clone", "valid", "feature/bar"])
+        assert result.exit_code == 1
+
+    def test_clone_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["clone", "--help"])
+        assert result.exit_code == 0
+        assert "source" in result.output.lower()

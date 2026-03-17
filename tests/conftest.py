@@ -111,13 +111,22 @@ def mysql_cleanup(mysql_conn_config):
     # Teardown: drop all tracked schemas and delete their metadata rows
     with get_connection(mysql_conn_config) as conn:
         with conn.cursor() as cursor:
+            # Check if metadata schema exists before attempting deletes
+            cursor.execute(
+                "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA "
+                "WHERE SCHEMA_NAME = %s",
+                (METADATA_SCHEMA,),
+            )
+            has_metadata = cursor.fetchone() is not None
+
             for name in created:
                 cursor.execute(f"DROP SCHEMA IF EXISTS `{name}`")
-                cursor.execute(
-                    f"DELETE FROM `{METADATA_SCHEMA}`.`{METADATA_TABLE}` "
-                    f"WHERE schema_name = %s",
-                    (name,),
-                )
+                if has_metadata:
+                    cursor.execute(
+                        f"DELETE FROM `{METADATA_SCHEMA}`.`{METADATA_TABLE}` "
+                        f"WHERE schema_name = %s",
+                        (name,),
+                    )
         conn.commit()
 
 
